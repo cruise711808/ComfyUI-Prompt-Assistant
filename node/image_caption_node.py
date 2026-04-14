@@ -331,5 +331,5 @@ NODE_CLASS_MAPPINGS = {
 
 # 节点显示名称映射
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "ImageCaptionNode": "✨图像反推提示词",
-} 
+    "ImageCaptionNode": "✨Image Caption",
+}
