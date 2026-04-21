@@ -68,10 +68,11 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
             category="✨Prompt Assistant",
             description="Extract text prompt from video frames using Vision-Language Models",
             inputs=[
-                # ComfyUI 的 VIDEO 数据类型比较特殊，可能并不是直接的一个 tensor
-                # 很多节点出来的视频类型是类似于 IMAGE batch（一堆图片）
-                # 这里我们假设它是 IMAGE 类型，因为 ComfyUI 通常用批量 IMAGE 表示视频
-                io.Image.Input("video_frames", tooltip="The video frames to analyze (IMAGE batch)"),
+                # ComfyUI 的 VIDEO 数据类型比较特殊，可能是包含 frames 的字典 (如 VHS 节点)
+                # 而很多其他节点出来的视频类型是直接的 IMAGE batch（一堆图片张量）
+                # 我们同时提供两个端口以实现最大程度的兼容
+                io.Image.Input("video_frames", tooltip="The video frames to analyze (IMAGE batch)", optional=True),
+                io.Custom.Input("video", "VIDEO", tooltip="Compatible with VIDEO type nodes (like VHS)", optional=True),
                 io.Combo.Input(
                     "rule",
                     options=prompt_template_options,
@@ -128,21 +129,26 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
     @classmethod
     def fingerprint_inputs(
         cls,
-        video_frames=None, rule=None, custom_rule=None, custom_rule_content=None,
+        video_frames=None, video=None, rule=None, custom_rule=None, custom_rule_content=None,
         user_prompt=None, frame_count=None, vlm_service=None, ollama_auto_unload=None, seed=None
     ):
         import hashlib
         temp_rule_hash = hashlib.md5((custom_rule_content or "").encode('utf-8')).hexdigest()
         user_hint_hash = hashlib.md5((user_prompt or "").encode('utf-8')).hexdigest()
         
-        # 计算视频帧哈希
+        # 兼容性：如果 video_frames 为空，尝试从 video 字典提取
+        effective_frames = video_frames
+        if effective_frames is None and isinstance(video, dict) and "frames" in video:
+            effective_frames = video["frames"]
+
+        # 计算有效视频帧哈希
         video_hash = ""
-        if video_frames is not None:
-            shape_str = str(video_frames.shape)
+        if effective_frames is not None and hasattr(effective_frames, "shape"):
+            shape_str = str(effective_frames.shape)
             hasher = hashlib.md5(shape_str.encode('utf-8'))
-            if video_frames.numel() > 0:
-                step = max(1, video_frames.shape[0] // min(4, video_frames.shape[0]))
-                sample = video_frames[::step]
+            if effective_frames.numel() > 0:
+                step = max(1, effective_frames.shape[0] // min(4, effective_frames.shape[0]))
+                sample = effective_frames[::step]
                 hasher.update(str(int(sample.sum().item())).encode('utf-8'))
             video_hash = hasher.hexdigest()
 
@@ -181,15 +187,22 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
     @classmethod
     def execute(
         cls,
-        video_frames, rule, custom_rule, custom_rule_content, 
-        user_prompt, frame_count, vlm_service, ollama_auto_unload, seed=None
+        video_frames=None, video=None, rule=None, custom_rule=None, custom_rule_content=None, 
+        user_prompt=None, frame_count=None, vlm_service=None, ollama_auto_unload=None, seed=None
     ):
         unique_id = cls.hidden.unique_id
         request_id = None
 
         try:
-            if video_frames is None or len(video_frames) == 0:
-                raise ValueError("No video frames provided.")
+            # 兼容性处理：如果 video_frames 为空，尝试从 video (VIDEO 类型) 中提取帧
+            if (video_frames is None or video_frames.numel() == 0) and video is not None:
+                if isinstance(video, dict) and "frames" in video:
+                    video_frames = video["frames"]
+                elif isinstance(video, torch.Tensor):
+                    video_frames = video
+            
+            if video_frames is None or video_frames.numel() == 0:
+                raise ValueError("No video frames provided. Please connect IMAGE batch or VIDEO input.")
 
             system_message = None
             rule_name = "Custom Rule" if (custom_rule and custom_rule_content) else rule
