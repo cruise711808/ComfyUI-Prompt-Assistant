@@ -180,8 +180,8 @@
                 "tooltip": "Contrôle le caractère aléatoire de la génération. Sélectionnez un mode non fixe pour forcer la réexécution"
             },
             "video_frames": {
-                "name": "Trames vidéo (IMAGE)",
-                "tooltip": "Séquence de trames vidéo (IMAGE batch)"
+                "name": "Images",
+                "tooltip": "Séquence d'images (IMAGE batch)"
             }
         },
         "outputs": {

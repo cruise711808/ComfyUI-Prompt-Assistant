@@ -180,8 +180,8 @@
                 "tooltip": "Controla la aleatoriedad de la generación. Seleccione un modo no fijo para forzar la reejecución"
             },
             "video_frames": {
-                "name": "Fotogramas de vídeo (IMAGE)",
-                "tooltip": "Secuencia de fotogramas de vídeo (IMAGE batch)"
+                "name": "Imágenes",
+                "tooltip": "Secuencia de imágenes (IMAGE batch)"
             }
         },
         "outputs": {

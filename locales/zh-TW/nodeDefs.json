@@ -180,8 +180,8 @@
                 "tooltip": "控制生成的隨機性。選擇非固定模式可強制節點重新執行"
             },
             "video_frames": {
-                "name": "影片幀 (IMAGE)",
-                "tooltip": "輸入影片帧序列（IMAGE batch）"
+                "name": "圖片",
+                "tooltip": "輸入圖片序列（IMAGE batch）"
             }
         },
         "outputs": {

@@ -180,8 +180,8 @@
                 "tooltip": "Üretimin rastgeleliğini kontrol eder. Yeniden yürütmeyi zorlamak için sabit olmayan bir mod seçin"
             },
             "video_frames": {
-                "name": "Video Kareleri (IMAGE)",
-                "tooltip": "Video karesi dizisi (IMAGE batch)"
+                "name": "Görüntüler",
+                "tooltip": "Görüntü dizisi (IMAGE batch)"
             }
         },
         "outputs": {
