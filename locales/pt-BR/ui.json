@@ -363,5 +363,7 @@
   "保存成功": "Sucesso",
   "输入无效": "Entrada inválida",
   "反推提示词（中文）": "Instrução de legenda (CH)",
-  "反推提示词（英文）": "Instrução de legenda (EN)"
+  "反推提示词（英文）": "Instrução de legenda (EN)",
+  "帧数已截断": "⚠️ Quadros truncados",
+  "帧数截断详情": "O modelo suporta no máx. {max} quadros, {truncated} quadro(s) ignorado(s)"
 }

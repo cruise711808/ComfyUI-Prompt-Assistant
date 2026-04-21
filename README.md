@@ -25,9 +25,10 @@
 ## **📣更新**
 
 <details open>
-<summary><strong>[2026-04-15] 🔥V2.0.6</strong></summary>
+<summary><strong>[2026-04-21] 🔥V2.0.6</strong></summary>
 
 **Fixes:**
+* **视频反推报错修复**：修复由于部分模型（如 Qwen3.5-Plus）被误判为不支持多图分析而导致的报错问题。现在支持根据模型名智能推断推上限并进行自动截断，不再弹出报错中断任务。
 * **子图挂载优化**：修复子图（Subgraph）节点在 Node 2.0 (Vue) 和 LiteGraph 模式下无法创建小助手或挂载不稳定的问题，支持子图中多个同名输入框的精确匹配。
 
 </details>

@@ -22,9 +22,10 @@
 ## **📣 Updates**
 
 <details open>
-<summary><strong>[2026-04-15] 🔥 V2.0.6</strong></summary>
+<summary><strong>[2026-04-21] 🔥 V2.0.6</strong></summary>
 
 **Fixes:**
+* **Video Caption Fix**: Fixed an issue where certain models (e.g., Qwen3.5-Plus) were incorrectly identified as not supporting multi-image analysis. Added intelligent frame-limit inference and automatic truncation to prevent job interruptions.
 * **Subgraph Mounting Optimization**: Fixed assistant initialization and stability on Subgraph nodes across Node 2.0 (Vue) and LiteGraph modes. Supported precise matching for multiple identically-named inputs.
 
 </details>

@@ -363,5 +363,7 @@
   "保存成功": "Saved successfully",
   "输入无效": "Invalid input",
   "反推提示词（中文）": "Caption Prompt (Chinese)",
-  "反推提示词（英文）": "Caption Prompt (English)"
+  "反推提示词（英文）": "Caption Prompt (English)",
+  "帧数已截断": "⚠️ Frames Truncated",
+  "帧数截断详情": "Model supports max {max} frames, {truncated} frame(s) ignored"
 }

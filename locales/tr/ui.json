@@ -363,5 +363,7 @@
   "保存成功": "Kaydedildi",
   "输入无效": "Geçersiz giriş",
   "反推提示词（中文）": "Başlık İstemi (Çince)",
-  "反推提示词（英文）": "Başlık İstemi (İngilizce)"
+  "反推提示词（英文）": "Başlık İstemi (İngilizce)",
+  "帧数已截断": "⚠️ Kareler kırpıldı",
+  "帧数截断详情": "Model en fazla {max} kare destekliyor, {truncated} kare yok sayıldı"
 }

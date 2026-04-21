@@ -19,7 +19,8 @@ from comfy_api.latest import io
 from ..services.vlm import VisionService
 from ..utils.common import (
     format_api_error, format_model_with_thinking, generate_request_id,
-    log_prepare, log_error, TASK_VIDEO_CAPTION, SOURCE_NODE
+    log_prepare, log_error, TASK_VIDEO_CAPTION, SOURCE_NODE,
+    get_model_max_images, WARN_PREFIX
 )
 from ..services.thinking_control import build_thinking_suppression
 from .base import VLMNodeBase
@@ -259,6 +260,17 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
             model_display = format_model_with_thinking(model_full_name, bool(thinking_extra))
             service_display_name = service.get('name', service_id)
 
+            # 获取模型推断上限
+            max_images = get_model_max_images(model_full_name)
+
+            # 截断检查
+            original_count = len(base64_images)
+            truncated_count = 0
+            if original_count > max_images:
+                base64_images = base64_images[:max_images]
+                truncated_count = original_count - max_images
+                print(f"{WARN_PREFIX} ⚠️ 帧数截断 | 原始:{original_count} → 实际:{max_images} | 已忽略:{truncated_count}帧 | 模型:{model_full_name}")
+
             log_prepare(TASK_VIDEO_CAPTION, request_id, SOURCE_NODE, service_display_name, model_display, rule_name, {"帧数": len(base64_images)})
 
             if not provider_config.get('api_key', '') or not provider_config.get('model', ''):
@@ -280,6 +292,20 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
             )
 
             if result and result.get('success'):
+                # 成功后推送截断警告到前端
+                if truncated_count > 0:
+                    try:
+                        from server import PromptServer
+                        PromptServer.instance.send_sync("prompt_assistant.warning", {
+                            "type": "frame_truncated",
+                            "model": model_full_name,
+                            "max_images": max_images,
+                            "original": original_count,
+                            "truncated": truncated_count
+                        })
+                    except Exception:
+                        pass
+
                 # V3 重构后返回的键名是 description 而不是 caption
                 data = result.get('data', {})
                 caption_text = data.get('description', data.get('caption', '')).strip()

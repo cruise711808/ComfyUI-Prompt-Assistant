@@ -363,5 +363,7 @@
   "保存成功": "Succès",
   "输入无效": "Saisie invalide",
   "反推提示词（中文）": "Inst. de description (CH)",
-  "反推提示词（英文）": "Inst. de description (EN)"
+  "反推提示词（英文）": "Inst. de description (EN)",
+  "帧数已截断": "⚠️ Images tronquées",
+  "帧数截断详情": "Le modèle supporte max {max} images, {truncated} image(s) ignorée(s)"
 }

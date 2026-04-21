@@ -535,14 +535,11 @@ class VisionService(OpenAICompatibleService):
             thinking_disabled = _thinking_check is not None
             model_display = format_model_with_thinking(model, thinking_disabled)
 
-            # 检查是否支持多图
-            supports_multi, max_images = check_multi_image_support(provider, model)
-            
-            if not supports_multi:
-                return {"success": False, "error": f"模型 {model} 不支持多图像分析"}
-            
+            # 智能推断上限（节点层已做截断，此处作为服务层最后防线，静默处理）
+            from ..utils.common import get_model_max_images
+            max_images = get_model_max_images(model)
             if len(images_data) > max_images:
-                return {"success": False, "error": f"图像数量 {len(images_data)} 超过模型限制 {max_images}"}
+                images_data = images_data[:max_images]
 
             # 预处理所有图像（智能压缩：根据图像数量动态调整质量）
             img_count = len(images_data)

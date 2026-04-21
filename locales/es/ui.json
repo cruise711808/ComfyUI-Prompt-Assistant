@@ -363,5 +363,7 @@
   "保存成功": "Éxito",
   "输入无效": "Entrada no válida",
   "反推提示词（中文）": "Instrucciones interrogación (CH)",
-  "反推提示词（英文）": "Instrucciones interrogación (EN)"
+  "反推提示词（英文）": "Instrucciones interrogación (EN)",
+  "帧数已截断": "⚠️ Fotogramas truncados",
+  "帧数截断详情": "El modelo admite máx. {max} fotogramas, se ignoraron {truncated}"
 }
