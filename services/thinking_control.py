@@ -95,9 +95,14 @@ OLLAMA_NATIVE_RULES = {
     "enable_value": False,   # disable_thinking=False 时发送此值（启用思考）
     "supported_patterns": [
         # r"qwen",  # 移除：太宽泛，会误伤qwen-instruct等普通模型
-        r"deepseek.*r1",  # DeepSeek R1系列
-        r"qwen.*r1",      # Qwen R1变体
-        r".*thinking",    # 任何名称包含thinking的模型
+        r"deepseek.*r1",     # DeepSeek R1系列
+        r"qwen.*r1",         # Qwen R1变体
+        r".*thinking",       # 任何名称包含thinking的模型
+        # BUG修复：Qwen3 系列（含 qwen3.5 等子版本）是 Hybrid 思考模型，
+        # 默认启用思考链，若不发送 think 参数会导致 filter_thinking_content
+        # 过滤后内容为空（"API returned empty result"）。
+        # 此模式精确匹配 qwen3 / qwen3.5 / qwen3-* 而不误伤 qwen-instruct 等。
+        r"qwen[-_/:]?3",     # Qwen3 系列（含 qwen3.5:4b、qwen3:8b 等）
     ],
     "notes": "Ollama原生API /api/chat 顶层参数"
 }

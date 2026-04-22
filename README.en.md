@@ -29,6 +29,7 @@
 
 **Fixes:**
 * **Video Caption Fix**: Fixed an issue where certain models (e.g., Qwen3.5-Plus) were incorrectly identified as not supporting multi-image analysis. Added intelligent frame-limit inference and automatic truncation.
+* **Ollama Fix**: Fixed empty results for Qwen3.5 and other thinking models on Ollama caused by missing `think` parameter.
 * **Subgraph Mounting Optimization**: Fixed assistant initialization and stability on Subgraph nodes across Node 2.0 (Vue) and LiteGraph modes.
 
 </details>
