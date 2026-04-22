@@ -198,15 +198,16 @@ class LLMService(OpenAICompatibleService):
                 full_content = ""
                 
                 # 定义请求核心逻辑
-                async def _request_core():
-                    async with client.stream('POST', f"{native_base}/api/chat", json=payload, follow_redirects=True) as resp:
+                async def _request_core(current_payload):
+                    async with client.stream('POST', f"{native_base}/api/chat", json=current_payload, follow_redirects=True) as resp:
                         if resp.status_code != 200:
                             error_text = await resp.aread()
                             try:
                                 error_data = json.loads(error_text)
-                                return {"success": False, "error": error_data.get('error', f'HTTP {resp.status_code}')}
+                                error_msg = error_data.get('error', f'HTTP {resp.status_code}')
                             except:
-                                return {"success": False, "error": f'HTTP {resp.status_code}'}
+                                error_msg = f'HTTP {resp.status_code}'
+                            return {"success": False, "error": error_msg, "status_code": resp.status_code}
                         
                         nonlocal full_content
                         async for line in resp.aiter_lines():
@@ -216,7 +217,7 @@ class LLMService(OpenAICompatibleService):
                                 message = chunk_data.get('message')
                                 if message and isinstance(message, dict):
                                     content = message.get('content', '')
-                                    if content and content.strip():
+                                    if content:
                                         full_content += content
                                         pbar.set_generating(len(full_content))
                                         pbar.update(len(full_content))
@@ -249,13 +250,23 @@ class LLMService(OpenAICompatibleService):
                     return False
 
                 # 并发执行
-                req_task = asyncio.create_task(_request_core())
+                req_task = asyncio.create_task(_request_core(payload))
                 monitor_task = asyncio.create_task(_monitor_interrupts(req_task))
                 
                 try:
                     result = await req_task
-                    # 关键修复：检查返回的结果，如果失败则停止进度条
-                    if not result.get("success"):
+
+                    # ==== 新增自动降级重试：如果模型不支持 thinking 参数，则移除后重试 ====
+                    if not result.get("success") and result.get("status_code") == 400 and "does not support thinking" in str(result.get("error")):
+                        if "think" in payload:
+                            del payload["think"]
+                            req_task = asyncio.create_task(_request_core(payload))
+                            monitor_task = asyncio.create_task(_monitor_interrupts(req_task))
+                            result = await req_task
+                    # ====================================================================
+
+                    # 兜底处理：确保失败结果时进度条已停止
+                    if not result.get("success") and not getattr(pbar, '_closed', False):
                         pbar.error(result.get("error", "未知错误"))
                     return result
                 except Exception as req_err:
@@ -380,8 +391,16 @@ class LLMService(OpenAICompatibleService):
             }
             messages = [lang_message, system_message, {"role": "user", "content": prompt}]
 
-            # Ollama走原生API (通过服务类型判断)
+            # 判断是否走原生 Ollama API：必须是 ollama 类型，且 base_url 不以 /v1 结尾或包含 /v1/
+            is_native_ollama = False
             if service and service.get('type') == 'ollama':
+                # 兼容 "http://xxx:11434/v1/" 或 "http://xxx:11434/v1"
+                _url = base_url.rstrip('/')
+                if not _url.endswith('/v1') and '/v1/' not in base_url:
+                    is_native_ollama = True
+
+            # Ollama走原生API
+            if is_native_ollama:
                 # 读取 Ollama 服务的配置
                 enable_advanced_params = service.get('enable_advanced_params', False)
                 filter_thinking_output = service.get('filter_thinking_output', True)
@@ -427,7 +446,9 @@ class LLMService(OpenAICompatibleService):
                     # 应用思维链输出过滤
                     content = result["content"]
                     if filter_thinking_output:
-                        content = filter_thinking_content(content)
+                        filtered = filter_thinking_content(content)
+                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                        content = filtered if filtered.strip() else content
                     
                     return {
                         "success": True,
@@ -470,7 +491,9 @@ class LLMService(OpenAICompatibleService):
                 # 根据配置决定是否应用思维链输出过滤
                 content = result["content"]
                 if filter_thinking_output:
-                    content = filter_thinking_content(content)
+                    filtered = filter_thinking_content(content)
+                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                    content = filtered if filtered.strip() else content
                 return {
                     "success": True,
                     "data": {"original": prompt, "expanded": content}
@@ -606,8 +629,16 @@ class LLMService(OpenAICompatibleService):
             ]
 
 
-            # Ollama走原生API (通过服务类型判断)
+            # 判断是否走原生 Ollama API：必须是 ollama 类型，且 base_url 不以 /v1 结尾或包含 /v1/
+            is_native_ollama = False
             if service and service.get('type') == 'ollama':
+                # 兼容 "http://xxx:11434/v1/" 或 "http://xxx:11434/v1"
+                _url = base_url.rstrip('/')
+                if not _url.endswith('/v1') and '/v1/' not in base_url:
+                    is_native_ollama = True
+
+            # Ollama走原生API
+            if is_native_ollama:
                 # 读取 Ollama 服务的配置
                 disable_thinking_enabled = service.get('disable_thinking', True)
                 enable_advanced_params = service.get('enable_advanced_params', False)
@@ -653,7 +684,9 @@ class LLMService(OpenAICompatibleService):
                     # 应用思维链输出过滤
                     content = result["content"]
                     if filter_thinking_output:
-                        content = filter_thinking_content(content)
+                        filtered = filter_thinking_content(content)
+                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                        content = filtered if filtered.strip() else content
                     
                     return {
                         "success": True,
@@ -693,7 +726,9 @@ class LLMService(OpenAICompatibleService):
                 # 根据配置决定是否应用思维链输出过滤
                 content = result["content"]
                 if filter_thinking_output:
-                    content = filter_thinking_content(content)
+                    filtered = filter_thinking_content(content)
+                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                    content = filtered if filtered.strip() else content
                 return {
                     "success": True,
                     "data": {"original": text, "translated": content}

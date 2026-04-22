@@ -451,6 +451,8 @@ class OpenAICompatibleService(BaseAPIService):
                         try:
                             from ..config_manager import config_manager
                             service_config = config_manager.get_service(provider_display_name) or {}
+                            # 注入当前实际使用的 base_url，防止回退到 localhost 导致清理显存失败
+                            service_config['base_url'] = base_url
                             await cls._unload_ollama_model(model, service_config)
                         except:
                             pass

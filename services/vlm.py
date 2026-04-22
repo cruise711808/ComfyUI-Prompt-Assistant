@@ -196,17 +196,17 @@ class VisionService(OpenAICompatibleService):
             
             full_content = ""
             
-            async def _request_core():
+            async def _request_core(current_payload):
                 nonlocal full_content
-                async with client.stream('POST', f"{native_base}/api/chat", json=payload, follow_redirects=True) as resp:
+                async with client.stream('POST', f"{native_base}/api/chat", json=current_payload, follow_redirects=True) as resp:
                     if resp.status_code != 200:
                         error_text = await resp.aread()
-                        pbar.error(f"Ollama API 错误: {resp.status_code}")
                         try:
                             error_data = json.loads(error_text)
-                            return {"success": False, "error": error_data.get('error', f'HTTP {resp.status_code}')}
+                            error_msg = error_data.get('error', f'HTTP {resp.status_code}')
                         except:
-                            return {"success": False, "error": f'HTTP {resp.status_code}'}
+                            error_msg = f'HTTP {resp.status_code}'
+                        return {"success": False, "error": error_msg, "status_code": resp.status_code}
                     
                     async for line in resp.aiter_lines():
                         if not line: continue
@@ -214,18 +214,13 @@ class VisionService(OpenAICompatibleService):
                             chunk_data = json.loads(line)
                             message = chunk_data.get('message')
                             if message and isinstance(message, dict):
-                                # Ollama 流式响应解析：
-                                # - message.content: 正式答案内容，直接追加
-                                # - message.thinking: Ollama 原生思考字段，不追加（避免污染 full_content）
-                                #   当 think:true 参数生效时，thinking 字段为空，content 字段为答案
-                                #   当模型不支持 think 参数时，thinking 字段可能有内容，但 content 也有真实答案
-                                content = message.get('content', '') or ''
-                                if content and content.strip():
+                                content = message.get('content', '')
+                                if content:
                                     full_content += content
                                     pbar.set_generating(len(full_content))
                                     pbar.update(len(full_content))
                                     if stream_callback: stream_callback(content)
-                            
+
                             if chunk_data.get('done', False):
                                 pbar.done(char_count=len(full_content), elapsed_ms=int((time.perf_counter() - start_time) * 1000))
                                 break
@@ -252,11 +247,23 @@ class VisionService(OpenAICompatibleService):
                 return False
 
             # 并发执行
-            req_task = asyncio.create_task(_request_core())
+            req_task = asyncio.create_task(_request_core(payload))
             monitor_task = asyncio.create_task(_monitor_interrupts(req_task))
             
             try:
                 result = await req_task
+                
+                # ==== 新增自动降级重试：如果模型不支持 thinking 参数，则移除后重试 ====
+                if not result.get("success") and result.get("status_code") == 400 and "does not support thinking" in str(result.get("error")):
+                    if "think" in payload:
+                        print(f"[PA-VLM-DBG] 自动降级: 模型 {model} 不支持 thinking 参数，移除后重试。")
+                        del payload["think"]
+                        full_content = ""
+                        req_task = asyncio.create_task(_request_core(payload))
+                        monitor_task = asyncio.create_task(_monitor_interrupts(req_task))
+                        result = await req_task
+                # ====================================================================
+
                 # 兜底处理：确保失败结果时进度条已停止
                 if not result.get("success") and not getattr(pbar, '_closed', False):
                     pbar.error(result.get("error", "未知错误"))
@@ -460,7 +467,9 @@ class VisionService(OpenAICompatibleService):
                 # 根据配置决定是否应用思维链输出过滤
                 content = result["content"]
                 if filter_thinking_output:
-                    content = filter_thinking_content(content)
+                    filtered = filter_thinking_content(content)
+                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                    content = filtered if filtered.strip() else content
                 return {
                     "success": True,
                     "data": {"description": content}
@@ -557,8 +566,16 @@ class VisionService(OpenAICompatibleService):
             # 获取系统提示词
             system_prompt = prompt_content or "请详细描述这些图片，分析它们之间的关系和差异。"
 
-            # Ollama走原生API (通过服务类型判断)
+            # 判断是否走原生 Ollama API：必须是 ollama 类型，且 base_url 不以 /v1 结尾或包含 /v1/
+            is_native_ollama = False
             if service and service.get('type') == 'ollama':
+                # 兼容 "http://xxx:11434/v1/" 或 "http://xxx:11434/v1"
+                _url = base_url.rstrip('/')
+                if not _url.endswith('/v1') and '/v1/' not in base_url:
+                    is_native_ollama = True
+
+            # Ollama走原生API
+            if is_native_ollama:
                 # 读取 Ollama 服务的配置
                 from ..config_manager import config_manager
                 # 此处保持类型判断，不再硬编码 ID 'ollama'
@@ -658,7 +675,9 @@ class VisionService(OpenAICompatibleService):
                 # 根据配置决定是否应用思维链输出过滤
                 content = result["content"]
                 if filter_thinking_output:
-                    content = filter_thinking_content(content)
+                    filtered = filter_thinking_content(content)
+                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
+                    content = filtered if filtered.strip() else content
                 return {
                     "success": True,
                     "data": {"description": content}

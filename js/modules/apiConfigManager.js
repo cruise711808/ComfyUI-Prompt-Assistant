@@ -987,12 +987,35 @@ class APIConfigManager {
             titleSection.appendChild(titleElement);
         }
 
+        // 如果是 Ollama 服务，在标题后方添加提示 tooltip
+        if (service.type === 'ollama') {
+            const titleElement = titleSection.querySelector('.settings-form-section-title');
+            if (titleElement) {
+                // 确保 h3 可以包含其他元素，设置为 flex 以对齐图标
+                titleElement.style.display = 'inline-flex';
+                titleElement.style.alignItems = 'center';
+
+                const icon = document.createElement('i');
+                icon.className = 'pi pi-info-circle service-setting-info-icon';
+                icon.style.marginLeft = '8px';
+                icon.style.fontSize = '14px';
+                icon.style.color = 'var(--p-text-muted-color)';
+                icon.style.cursor = 'help';
+                titleElement.appendChild(icon);
+                
+                createTooltip({
+                    target: icon,
+                    content: '⚠️ 建议不要在地址后方添加 /v1。不加 /v1 会走原生 Ollama API，加了 /v1 则会走 OpenAI 兼容请求格式。',
+                    position: 'top'
+                });
+            }
+        }
+
         card.appendChild(titleSection);
 
         // 基本信息
         const baseUrlInput = createInputGroup('Base URL', 'https://api.example.com/v1');
         baseUrlInput.input.value = service.base_url || '';
-        
         // 智谱和 xflow 服务的 Base URL 禁用修改
         if (service.id === 'zhipu' || service.id === 'xFlow') {
             baseUrlInput.input.disabled = true;
