@@ -250,6 +250,19 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
         if isinstance(video, torch.Tensor):
             return video if video.numel() > 0 else None
 
+        # ComfyUI V3 原生 VideoInput 对象（io.Video 类型）
+        # 通过 get_components().images 提取帧张量（形状 [N, H, W, C]）
+        try:
+            from comfy_api.input import VideoInput as _VideoInput
+            if isinstance(video, _VideoInput):
+                components = video.get_components()
+                tensor = components.images
+                if isinstance(tensor, torch.Tensor) and tensor.numel() > 0:
+                    return tensor
+                return None
+        except Exception:
+            pass
+
         if isinstance(video, dict):
             # VHS 节点一般使用 'frames' 或 'video' 键
             tensor = video.get('frames') or video.get('video')
@@ -261,11 +274,20 @@ class VideoCaptionNode(VLMNodeBase, io.ComfyNode):
                     return v
             return None
 
-        # 兼容具有 frames/video 属性的对象
+        # 兼容具有 frames/video 属性的对象（兼容旧式 VHS 等节点）
         for attr in ('frames', 'video'):
             t = getattr(video, attr, None)
             if isinstance(t, torch.Tensor) and t.numel() > 0:
                 return t
+
+        # 最后尝试 get_components() 鸭子类型兼容（非 VideoInput 子类但接口相同）
+        try:
+            components = video.get_components()
+            tensor = components.images
+            if isinstance(tensor, torch.Tensor) and tensor.numel() > 0:
+                return tensor
+        except Exception:
+            pass
 
         # 尝试索引访问（少数特殊容器）
         try:
