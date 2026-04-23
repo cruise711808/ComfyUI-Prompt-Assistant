@@ -212,6 +212,19 @@ class VisionService(OpenAICompatibleService):
                         if not line: continue
                         try:
                             chunk_data = json.loads(line)
+                            
+                            # 关键修复：检测流内错误
+                            if chunk_data.get('error'):
+                                error_msg = chunk_data.get('error')
+                                if isinstance(error_msg, dict):
+                                    error_msg = error_msg.get('message', str(error_msg))
+                                else:
+                                    error_msg = str(error_msg)
+                                
+                                # 如果包含不支持的参数，触发降级重试
+                                status_code = 400 if "think" in error_msg.lower() or "support" in error_msg.lower() or "invalid" in error_msg.lower() else 200
+                                return {"success": False, "error": error_msg, "status_code": status_code}
+                            
                             message = chunk_data.get('message')
                             if message and isinstance(message, dict):
                                 content = message.get('content', '')
@@ -222,9 +235,14 @@ class VisionService(OpenAICompatibleService):
                                     if stream_callback: stream_callback(content)
 
                             if chunk_data.get('done', False):
+                                # 针对 Ollama 错误地返回空内容的兜底策略
+                                if not full_content.strip() and "think" in current_payload:
+                                    return {"success": False, "error": "Model does not support thinking or returned empty content", "status_code": 400}
+                                    
                                 pbar.done(char_count=len(full_content), elapsed_ms=int((time.perf_counter() - start_time) * 1000))
                                 break
-                        except: continue
+                        except Exception as e:
+                            continue
                 return {"success": True, "content": full_content.strip()}
 
             # 定义监视器逻辑
@@ -365,6 +383,8 @@ class VisionService(OpenAICompatibleService):
 
             # 获取系统提示词
             system_prompt = prompt_content or "请详细描述这张图片的内容，包括主要对象、场景、颜色、氛围等。"
+            if disable_thinking_enabled:
+                system_prompt += " 请直接输出结果，不要包含任何思考过程、推理过程或 <think> 标签。"
 
             # Ollama走原生API (通过服务类型判断)
             if service and service.get('type') == 'ollama':
@@ -408,8 +428,18 @@ class VisionService(OpenAICompatibleService):
                     content = result["content"]
                     if filter_thinking_output:
                         filtered = filter_thinking_content(content)
-                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                        content = filtered if filtered.strip() else content
+                        # 改进的过滤逻辑
+                        if filtered.strip():
+                            content = filtered
+                        elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                            # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                            content = ""
+                        else:
+                            content = filtered
+                    
+                    # 最终检查
+                    if not content.strip():
+                        return {"success": False, "error": "API returned empty result after filtering reasoning content (Model only output thinking process)"}
                     
                     return {
                         "success": True,
@@ -460,7 +490,8 @@ class VisionService(OpenAICompatibleService):
                 provider_display_name=provider_display_name,
                 cancel_event=cancel_event,
                 task_type=task_type or TASK_IMAGE_CAPTION,
-                source=source
+                source=source,
+                filter_thinking_output=filter_thinking_output
             )
 
             if result["success"]:
@@ -468,8 +499,18 @@ class VisionService(OpenAICompatibleService):
                 content = result["content"]
                 if filter_thinking_output:
                     filtered = filter_thinking_content(content)
-                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                    content = filtered if filtered.strip() else content
+                    # 改进的过滤逻辑
+                    if filtered.strip():
+                        content = filtered
+                    elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                        # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                        content = ""
+                    else:
+                        content = filtered
+                
+                # 最终检查内容是否为空
+                if not content.strip():
+                    return {"success": False, "error": "API returned empty result after filtering reasoning content (Model only output thinking process)"}
                 return {
                     "success": True,
                     "data": {"description": content}
@@ -565,6 +606,8 @@ class VisionService(OpenAICompatibleService):
 
             # 获取系统提示词
             system_prompt = prompt_content or "请详细描述这些图片，分析它们之间的关系和差异。"
+            if disable_thinking_enabled:
+                system_prompt += " 请直接输出结果，不要包含任何思考过程、推理过程或 <think> 标签。"
 
             # 判断是否走原生 Ollama API：必须是 ollama 类型，且 base_url 不以 /v1 结尾或包含 /v1/
             is_native_ollama = False
@@ -619,8 +662,18 @@ class VisionService(OpenAICompatibleService):
                     content = result["content"]
                     if filter_thinking_output:
                         filtered = filter_thinking_content(content)
-                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                        content = filtered if filtered.strip() else content
+                        # 改进的过滤逻辑
+                        if filtered.strip():
+                            content = filtered
+                        elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                            # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                            content = ""
+                        else:
+                            content = filtered
+                    
+                    # 最终检查
+                    if not content.strip():
+                        return {"success": False, "error": "API returned empty result after filtering reasoning content (Model only output thinking process)"}
                     
                     return {
                         "success": True,
@@ -668,7 +721,8 @@ class VisionService(OpenAICompatibleService):
                 provider_display_name=provider_display_name,
                 cancel_event=cancel_event,
                 task_type=task_type or TASK_VIDEO_CAPTION,
-                source=source
+                source=source,
+                filter_thinking_output=filter_thinking_output
             )
 
             if result["success"]:
@@ -676,8 +730,18 @@ class VisionService(OpenAICompatibleService):
                 content = result["content"]
                 if filter_thinking_output:
                     filtered = filter_thinking_content(content)
-                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                    content = filtered if filtered.strip() else content
+                    # 改进的过滤逻辑
+                    if filtered.strip():
+                        content = filtered
+                    elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                        # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                        content = ""
+                    else:
+                        content = filtered
+                
+                # 最终检查内容是否为空
+                if not content.strip():
+                    return {"success": False, "error": "API returned empty result after filtering reasoning content (Model only output thinking process)"}
                 return {
                     "success": True,
                     "data": {"description": content}

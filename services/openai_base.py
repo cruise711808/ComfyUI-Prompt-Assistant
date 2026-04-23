@@ -25,6 +25,11 @@ def filter_thinking_content(text: str) -> str:
     过滤模型输出中的思维链内容
     支持多种标签格式：<think>, <reasoning>, <thoughts>
     
+    处理三种情况：
+    1. 成对标签：<think>...</think> → 移除整个块
+    2. 只有结束标签：...content</think> → 移除到结束标签为止的内容
+    3. 只有开始标签（无结束标签）：<think>...EOF → 移除整个思考块（截断到结尾）
+    
     参数:
         text: 原始模型输出文本
     
@@ -34,17 +39,21 @@ def filter_thinking_content(text: str) -> str:
     if not text:
         return text
     
-    # 1. 优先匹配成对的思维链标签
-    # 匹配 <think>...</think> 等成对结构
+    # 1. 优先匹配成对的思维链标签（最常见情况）
     pattern_pair = r'<(think|thinking|reasoning|thoughts?)>[\s\S]*?</\1>'
     text = re.sub(pattern_pair, '', text, flags=re.IGNORECASE)
     
-    # 2. 兜底处理：如果还有残留的结束标签（可能缺少开始标签），则移除该标签及其之前的所有内容
-    # 假设：思考过程总是出现在回答的最前面
+    # 2. 兜底处理：如果还有残留的结束标签，则移除该标签及之前的所有内容
     pattern_orphan_end = r'^[\s\S]*?</(think|thinking|reasoning|thoughts?)>'
     text = re.sub(pattern_orphan_end, '', text, flags=re.IGNORECASE)
     
+    # 3. 处理只有开始标签、没有结束标签的情况
+    # 场景：模型输出 <think>Thinking Process:...
+    pattern_orphan_start = r'<(think|thinking|reasoning|thoughts?)>[\s\S]*$'
+    text = re.sub(pattern_orphan_start, '', text, flags=re.IGNORECASE)
+    
     return text.strip()
+
 
 
 class OpenAICompatibleService(BaseAPIService):
@@ -167,7 +176,8 @@ class OpenAICompatibleService(BaseAPIService):
         provider_display_name: str = "未知服务",
         cancel_event: Optional[Any] = None,
         task_type: str = None,
-        source: str = None
+        source: str = None,
+        filter_thinking_output: bool = True
     ) -> Dict[str, Any]:
         """
         使用HTTP直连调用/chat/completions接口
@@ -376,14 +386,44 @@ class OpenAICompatibleService(BaseAPIService):
                                 }
                             
                             final_content = full_content
-                            if reasoning_content:
+                            # 只有当用户没有开启“过滤思维链”时，才手动把 reasoning_content 拼回去
+                            if reasoning_content and not filter_thinking_output:
                                 final_content = f"<think>{reasoning_content}</think>\n{full_content}"
                             
                             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
                             if not final_content.strip():
                                 pbar.error("响应内容为空")
                                 # --- 调试日志 (1级): 警告响应内容为空 ---
-                                print(f"\n{WARN_PREFIX} [API响应调试] 模型:{model} | 状态:成功 | 但最终内容为空字符串", flush=True)
+                                print(f"\n{WARN_PREFIX} [API响应调试] 模型:{model} | 状态:成功 | 但最终内容为空字符串，触发降级重试", flush=True)
+                                return {
+                                    "success": False,
+                                    "error": "API returned empty content",
+                                    "status_code": 200,
+                                    "should_retry": True
+                                }
+                            
+                            # 应用思维链过滤 (如果请求中指定了过滤)
+                            if filter_thinking_output:
+                                filtered = filter_thinking_content(final_content)
+                                # 改进的过滤逻辑：
+                                # 如果过滤后内容变空了，且原始内容包含明显的思维链标签，说明模型只输出了思考过程
+                                # 此时如果不为空且匹配了标签，我们不回退，直接让它为空（触发后续的空结果错误）
+                                if filtered.strip():
+                                    final_content = filtered
+                                elif final_content.strip() and ("<think" in final_content.lower() or "<reason" in final_content.lower() or "</think" in final_content.lower()):
+                                    # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空
+                                    final_content = ""
+                                else:
+                                    final_content = filtered
+                            
+                            # 过滤后的最终判空
+                            if not final_content.strip():
+                                return {
+                                    "success": False,
+                                    "error": "API returned empty content after filtering",
+                                    "status_code": 200,
+                                    "should_retry": True
+                                }
                             else:
                                 pbar.done(char_count=len(final_content), elapsed_ms=elapsed_ms)
                             

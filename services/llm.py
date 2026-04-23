@@ -214,6 +214,19 @@ class LLMService(OpenAICompatibleService):
                             if not line: continue
                             try:
                                 chunk_data = json.loads(line)
+                                
+                                # 关键修复：检测流内错误（Ollama 可能会在 HTTP 200 流中发送 error 对象）
+                                if chunk_data.get('error'):
+                                    error_msg = chunk_data.get('error')
+                                    if isinstance(error_msg, dict):
+                                        error_msg = error_msg.get('message', str(error_msg))
+                                    else:
+                                        error_msg = str(error_msg)
+                                    
+                                    # 如果包含不支持的参数，触发降级重试
+                                    status_code = 400 if "think" in error_msg.lower() or "support" in error_msg.lower() or "invalid" in error_msg.lower() else 200
+                                    return {"success": False, "error": error_msg, "status_code": status_code}
+                                
                                 message = chunk_data.get('message')
                                 if message and isinstance(message, dict):
                                     content = message.get('content', '')
@@ -224,9 +237,13 @@ class LLMService(OpenAICompatibleService):
                                         if stream_callback: stream_callback(content)
                                 
                                 if chunk_data.get('done', False):
+                                    # 针对 Ollama 错误地返回空内容的兜底策略
+                                    if not full_content.strip() and "think" in current_payload:
+                                        return {"success": False, "error": "Model does not support thinking or returned empty content", "status_code": 400}
+                                        
                                     pbar.done(char_count=len(full_content), elapsed_ms=int((time.perf_counter() - start_time) * 1000))
                                     break
-                            except:
+                            except Exception as e:
                                 continue
                         return {"success": True, "content": full_content.strip()}
 
@@ -257,8 +274,16 @@ class LLMService(OpenAICompatibleService):
                     result = await req_task
 
                     # ==== 新增自动降级重试：如果模型不支持 thinking 参数，则移除后重试 ====
-                    if not result.get("success") and result.get("status_code") == 400 and "does not support thinking" in str(result.get("error")):
+                    is_think_error = False
+                    if not result.get("success") and result.get("error"):
+                        err_str = str(result.get("error")).lower()
+                        # 广谱匹配不支持参数的错误
+                        if result.get("status_code") == 400 or "think" in err_str or "support" in err_str or "invalid" in err_str or "empty" in err_str:
+                            is_think_error = True
+                            
+                    if is_think_error:
                         if "think" in payload:
+                            # 移除不支持的 think 参数，重新发起请求
                             del payload["think"]
                             req_task = asyncio.create_task(_request_core(payload))
                             monitor_task = asyncio.create_task(_monitor_interrupts(req_task))
@@ -385,9 +410,13 @@ class LLMService(OpenAICompatibleService):
             model_display = format_model_with_thinking(model, thinking_disabled)
 
             # 构建消息
+            lang_content = "请用中文回答" if LLMService._is_chinese(prompt) else "Please answer in English."
+            if disable_thinking_enabled:
+                lang_content += " 请直接输出结果，不要包含任何思考过程、推理过程或 <think> 标签。"
+            
             lang_message = {
                 "role": "system",
-                "content": "请用中文回答" if LLMService._is_chinese(prompt) else "Please answer in English."
+                "content": lang_content
             }
             messages = [lang_message, system_message, {"role": "user", "content": prompt}]
 
@@ -447,8 +476,20 @@ class LLMService(OpenAICompatibleService):
                     content = result["content"]
                     if filter_thinking_output:
                         filtered = filter_thinking_content(content)
-                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                        content = filtered if filtered.strip() else content
+                        # 改进的过滤逻辑：
+                        # 如果过滤后内容变空了，且原始内容包含明显的思维链标签，说明模型只输出了思考过程
+                        # 此时如果不为空且匹配了标签，我们不回退，直接让它为空（触发后续的空结果错误，或者让用户知道确实没结果）
+                        if filtered.strip():
+                            content = filtered
+                        elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                            # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                            content = ""
+                        else:
+                            content = filtered
+                    
+                    # 最终检查内容是否为空
+                    if not content.strip():
+                        return {"success": False, "error": "API returned empty result after filtering reasoning content (Ollama native)"}
                     
                     return {
                         "success": True,
@@ -484,7 +525,8 @@ class LLMService(OpenAICompatibleService):
                 provider_display_name=provider_display_name,
                 cancel_event=cancel_event,
                 task_type=task_type or TASK_EXPAND,
-                source=source
+                source=source,
+                filter_thinking_output=filter_thinking_output
             )
 
             if result["success"]:
@@ -492,8 +534,19 @@ class LLMService(OpenAICompatibleService):
                 content = result["content"]
                 if filter_thinking_output:
                     filtered = filter_thinking_content(content)
-                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                    content = filtered if filtered.strip() else content
+                    # 改进的过滤逻辑：
+                    # 如果过滤后内容变空了，且原始内容包含明显的思维链标签，说明模型只输出了思考过程
+                    if filtered.strip():
+                        content = filtered
+                    elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                        # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                        content = ""
+                    else:
+                        content = filtered
+                
+                # 最终检查内容是否为空
+                if not content.strip():
+                    return {"success": False, "error": "API returned empty result after filtering reasoning content (Model only output thinking process)"}
                 return {
                     "success": True,
                     "data": {"original": prompt, "expanded": content}
@@ -685,8 +738,18 @@ class LLMService(OpenAICompatibleService):
                     content = result["content"]
                     if filter_thinking_output:
                         filtered = filter_thinking_content(content)
-                        # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                        content = filtered if filtered.strip() else content
+                        # 改进的过滤逻辑
+                        if filtered.strip():
+                            content = filtered
+                        elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                            # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                            content = ""
+                        else:
+                            content = filtered
+                    
+                    # 最终检查
+                    if not content.strip():
+                        return {"success": False, "error": "API returned empty result after filtering reasoning content (Ollama native)"}
                     
                     return {
                         "success": True,
@@ -727,8 +790,18 @@ class LLMService(OpenAICompatibleService):
                 content = result["content"]
                 if filter_thinking_output:
                     filtered = filter_thinking_content(content)
-                    # 过滤后若为空（如模型输出仅含 <think> 块），则保留原始内容避免误报空结果
-                    content = filtered if filtered.strip() else content
+                    # 改进的过滤逻辑
+                    if filtered.strip():
+                        content = filtered
+                    elif content.strip() and ("<think" in content.lower() or "<reason" in content.lower() or "</think" in content.lower()):
+                        # 明确检测到思维链标签且过滤后变空，说明整段都是思维链，返回空以触发错误处理
+                        content = ""
+                    else:
+                        content = filtered
+                
+                # 最终检查
+                if not content.strip():
+                    return {"success": False, "error": "API returned empty result after filtering reasoning content"}
                 return {
                     "success": True,
                     "data": {"original": text, "translated": content}

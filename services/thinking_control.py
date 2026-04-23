@@ -84,20 +84,21 @@ THINKING_CONTROL_RULES: List[Dict[str, Any]] = [
 # ==================== 二级:Ollama特殊规则(原生API专用) ====================
 # Ollama使用/api/chat原生接口,参数格式不同
 # 
-# ⚠️ 重要发现：think 参数行为与直觉相反
-# - think: true  → 关闭思考（不输出 <think> 标签）
-# - think: false → 启用思考（输出 <think> 标签）
-# - 不发送      → 默认关闭思考（Ollama 默认行为）
+# 深入原理解析:
+# - think: true  → 启用思考，但 Ollama 会将思考过程放入独立的 message.thinking 字段。
+#                  因为我们当前只读取 message.content，所以视觉上达到了"隐藏/关闭思考"的效果。
+# - think: false → 关闭思考分离，模型输出的 <think> 标签会直接混入 message.content 中，
+#                  导致在前端界面直接显示出来，视觉上成了"显示思考"。
 
 OLLAMA_NATIVE_RULES = {
     "parameter_name": "think",
-    "disable_value": True,   # disable_thinking=True 时发送此值（关闭思考）
-    "enable_value": False,   # disable_thinking=False 时发送此值（启用思考）
+    "disable_value": True,   # disable_thinking=True 时发送此值（将思考放入独立字段从而隐藏）
+    "enable_value": False,   # disable_thinking=False 时发送此值（使思考内容混入正文显示）
     "supported_patterns": [
         r"deepseek.*r1",     # DeepSeek R1系列
-        r"qwen.*r1",         # Qwen R1变体
+        r"qwen.*r1",         # Qwen R1变体（如 qwen3-reasoning）
         r".*thinking",       # 任何名称包含thinking的模型
-        r"qwen[-_/:]?3",     # Qwen3 系列（含 qwen3.5:4b、qwen3:8b 等）
+        r"qwen3",            # Qwen3 系列（含 qwen3.5:4b、qwen3:8b 等），Ollama 原生支持 think 参数
     ],
     "notes": "Ollama原生API /api/chat 顶层参数"
 }
