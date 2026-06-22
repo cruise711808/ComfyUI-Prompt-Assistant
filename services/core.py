@@ -67,10 +67,15 @@ class HTTPClientPool:
         # 检测事件循环变化，必要时清理旧客户端
         cls._check_loop_change()
         
-        # 智能判定是否为本地地址
+        # 智能判定是否为本地/局域网地址
         is_local = False
         if base_url:
-            is_local = any(host in str(base_url) for host in ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'])
+            import re
+            url_str = str(base_url)
+            is_local = any(host in url_str for host in ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'])
+            # 也匹配 RFC1918 内网地址段（10.x.x.x, 192.168.x.x, 172.16-31.x.x）
+            if not is_local:
+                is_local = bool(re.search(r'//(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)', url_str))
         
         trust_env = not is_local
         cache_key = (
