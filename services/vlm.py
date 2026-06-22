@@ -55,6 +55,10 @@ class VisionService(OpenAICompatibleService):
         top_p: float,
         max_tokens: int,
         base_url: str,
+        top_k: Optional[float] = None,
+        min_p: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        repeat_penalty: Optional[float] = None,
         stream_callback: Optional[Callable[[str], None]] = None,
         request_id: Optional[str] = None,
         is_multi: bool = False,
@@ -155,7 +159,15 @@ class VisionService(OpenAICompatibleService):
                 options["temperature"] = temperature
                 options["top_p"] = top_p
                 options["num_predict"] = max_tokens
-            
+                if top_k is not None:
+                    options["top_k"] = top_k
+                if min_p is not None:
+                    options["min_p"] = min_p
+                if presence_penalty is not None:
+                    options["presence_penalty"] = presence_penalty
+                if repeat_penalty is not None:
+                    options["repeat_penalty"] = repeat_penalty
+
             payload["options"] = options
             
             # 添加思维链控制参数（如 think: true 或 think: false）
@@ -254,6 +266,10 @@ class VisionService(OpenAICompatibleService):
                 top_p = custom_provider_config.get('top_p', 0.9)
                 max_tokens = custom_provider_config.get('max_tokens', 2000)
                 base_url = custom_provider_config.get('base_url', '')
+                top_k = custom_provider_config.get('top_k')
+                min_p = custom_provider_config.get('min_p')
+                presence_penalty = custom_provider_config.get('presence_penalty')
+                repeat_penalty = custom_provider_config.get('repeat_penalty')
             else:
                 config = VisionService._get_config()
                 provider = config.get('provider', 'unknown')
@@ -263,6 +279,10 @@ class VisionService(OpenAICompatibleService):
                 top_p = config.get('top_p', 0.9)
                 max_tokens = config.get('max_tokens', 2000)
                 base_url = config.get('base_url', '')
+                top_k = config.get('top_k')
+                min_p = config.get('min_p')
+                presence_penalty = config.get('presence_penalty')
+                repeat_penalty = config.get('repeat_penalty')
 
             # 注：允许空API Key，支持无认证服务商
             if not model:
@@ -324,6 +344,10 @@ class VisionService(OpenAICompatibleService):
                     top_p=top_p,
                     max_tokens=max_tokens,
                     base_url=base_url,
+                    top_k=top_k,
+                    min_p=min_p,
+                    presence_penalty=presence_penalty,
+                    repeat_penalty=repeat_penalty,
                     stream_callback=stream_callback,
                     request_id=request_id,
                     is_multi=False,
@@ -387,6 +411,10 @@ class VisionService(OpenAICompatibleService):
                 temperature=temperature,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                top_k=top_k,
+                min_p=min_p,
+                presence_penalty=presence_penalty,
+                repeat_penalty=repeat_penalty,
                 thinking_extra=thinking_extra,
                 enable_advanced_params=enable_advanced_params,
                 stream_callback=stream_callback,
@@ -451,6 +479,10 @@ class VisionService(OpenAICompatibleService):
                 top_p = custom_provider_config.get('top_p', 0.9)
                 max_tokens = custom_provider_config.get('max_tokens', 2000)
                 base_url = custom_provider_config.get('base_url', '')
+                top_k = custom_provider_config.get('top_k')
+                min_p = custom_provider_config.get('min_p')
+                presence_penalty = custom_provider_config.get('presence_penalty')
+                repeat_penalty = custom_provider_config.get('repeat_penalty')
             else:
                 config = VisionService._get_config()
                 provider = config.get('provider', 'unknown')
@@ -460,6 +492,10 @@ class VisionService(OpenAICompatibleService):
                 top_p = config.get('top_p', 0.9)
                 max_tokens = config.get('max_tokens', 2000)
                 base_url = config.get('base_url', '')
+                top_k = config.get('top_k')
+                min_p = config.get('min_p')
+                presence_penalty = config.get('presence_penalty')
+                repeat_penalty = config.get('repeat_penalty')
 
             # 注：允许空API Key，支持无认证服务商
             if not model:
@@ -543,6 +579,10 @@ class VisionService(OpenAICompatibleService):
                     top_p=top_p,
                     max_tokens=max_tokens,
                     base_url=base_url,
+                    top_k=top_k,
+                    min_p=min_p,
+                    presence_penalty=presence_penalty,
+                    repeat_penalty=repeat_penalty,
                     stream_callback=stream_callback,
                     request_id=request_id,
                     is_multi=True,
@@ -603,6 +643,10 @@ class VisionService(OpenAICompatibleService):
                 temperature=temperature,
                 top_p=top_p,
                 max_tokens=max_tokens,
+                top_k=top_k,
+                min_p=min_p,
+                presence_penalty=presence_penalty,
+                repeat_penalty=repeat_penalty,
                 thinking_extra=thinking_extra,
                 enable_advanced_params=enable_advanced_params,
                 stream_callback=stream_callback,

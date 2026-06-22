@@ -134,6 +134,10 @@ class OpenAICompatibleService(BaseAPIService):
         temperature: float = 0.7,
         top_p: float = 0.9,
         max_tokens: int = 2000,
+        top_k: Optional[float] = None,
+        min_p: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        repeat_penalty: Optional[float] = None,
         thinking_extra: Optional[Dict[str, Any]] = None,
         enable_advanced_params: bool = False,
         stream_callback: Optional[Callable[[str], None]] = None,
@@ -186,12 +190,21 @@ class OpenAICompatibleService(BaseAPIService):
                 else:
                     initial_payload["max_tokens"] = max_tokens
 
-            
+            # 特性高级参数：仅当值不为 None 时才传递（留空=不维护）
+            if enable_advanced_params:
+                if top_k is not None:
+                    initial_payload["top_k"] = top_k
+                if min_p is not None:
+                    initial_payload["min_p"] = min_p
+                if presence_penalty is not None:
+                    initial_payload["presence_penalty"] = presence_penalty
+                if repeat_penalty is not None:
+                    initial_payload["repeat_penalty"] = repeat_penalty
 
             # 添加思维链控制参数
             if thinking_extra:
                 initial_payload.update(thinking_extra)
-            
+
             # 构建请求头
             headers = {"Content-Type": "application/json"}
             if api_key and api_key.strip():

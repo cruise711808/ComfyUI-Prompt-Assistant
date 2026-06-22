@@ -2512,7 +2512,8 @@ body.column-resizing * {
 
 /* 当包含模型参数表单时,使用更大的宽度 */
 .pa-confirm-popup-content:has(.model-params-form) {
-    min-width: 480px;
+    min-width: 740px; /* 适当减小整体宽度 */
+    max-width: 800px;
 }
 
 /* ---消息区域--- */
@@ -2555,14 +2556,55 @@ body.column-resizing * {
 
 /* ---模型参数表单横向布局--- */
 .pa-confirm-popup-form.model-params-form {
-    display: flex;
-    gap: 20px;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 使用 1fr 等比均分剩余空间 */
+    column-gap: 16px; /* 减小列间距 */
+    row-gap: 36px; /* 保持行距给向上延伸的标签留空间 */
+    margin-top: 24px; /* 分割线下方增加留白，避免拥挤 */
+    padding-bottom: 8px; 
 }
 
 .pa-confirm-popup-form.model-params-form .settings-form-group {
     margin-bottom: 0;
-    flex-shrink: 0;
+    width: 100% !important;
+}
+
+/* 模型参数表单中隐藏上下箭头按钮，不需要占用空间 */
+.pa-confirm-popup-form.model-params-form .number-input-buttons {
+    display: none;
+}
+
+.pa-confirm-popup-form.model-params-form input[type="number"] {
+    padding: 0.6rem 0.75rem; /* 使用内边距自然撑起高度 */
+    font-size: 0.95rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pa-confirm-popup-form.model-params-form input[type="number"]::placeholder {
+    font-size: 1rem;
+    color: var(--p-text-muted-color);
+    opacity: 0.8;
+}
+
+/* 智能骑线逻辑：无论几行，永远让最后一行文字的中间线压在边框上 */
+.pa-confirm-popup-form.model-params-form .float-label-container label {
+    top: 0 !important;
+    bottom: auto;
+    left: 8px; /* 稍微往右偏移一点，不紧贴左边缘 */
+    /* 让整个标签升到边框以上，然后再往下掉 0.7em (恰好等于 1.4 行高的一半) */
+    transform: translateY(-100%) !important;
+    margin: 0 !important;
+    margin-top: 0.7em !important; 
+    background: var(--p-dialog-background); /* 使用弹窗背景色遮挡背后的边框线 */
+    padding: 0 6px; /* 左右增加留白，让切断线的效果更干净 */
+    font-size: 0.75rem !important;
+    line-height: 1.4;
+    white-space: pre !important; /* 核心修复：禁止自动折行，只在 \n 处强制换行 */
+    text-align: left;
+    z-index: 1;
+    font-weight: 500 !important; /* 核心修复：锁定字重，避免点击加粗导致的宽度跳动闪烁 */
+    transition: color 0.2s ease !important; /* 去除其它形状动画，仅保留颜色渐变 */
 }
 
 /* ---数字输入框样式优化--- */

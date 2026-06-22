@@ -692,11 +692,15 @@ class ConfigManager:
             "temperature": target_model.get('temperature', 0.7),
             "max_tokens": target_model.get('max_tokens', 1000),
             "top_p": target_model.get('top_p', 0.9),
+            "top_k": target_model.get('top_k'),
+            "min_p": target_model.get('min_p'),
+            "presence_penalty": target_model.get('presence_penalty'),
+            "repeat_penalty": target_model.get('repeat_penalty'),
             "auto_unload": service.get('auto_unload', True) if service.get('type') == 'ollama' else None,
             "providers": {}  # v2.0中不再使用此字段
         }
 
-    
+
     def _get_empty_llm_config(self):
         """返回空的LLM配置"""
         return {
@@ -775,10 +779,14 @@ class ConfigManager:
             "temperature": target_model.get('temperature', 0.7),
             "max_tokens": target_model.get('max_tokens', 4096),
             "top_p": target_model.get('top_p', 0.9),
+            "top_k": target_model.get('top_k'),
+            "min_p": target_model.get('min_p'),
+            "presence_penalty": target_model.get('presence_penalty'),
+            "repeat_penalty": target_model.get('repeat_penalty'),
             "auto_unload": service.get('auto_unload', True) if service.get('type') == 'ollama' else None,
             "providers": {}  # v2.0中不再使用此字段
         }
-    
+
     def _get_empty_vision_config(self):
         """返回空的视觉模型配置"""
         return {
@@ -881,6 +889,10 @@ class ConfigManager:
             "temperature": target_model.get('temperature', 0.7),
             "max_tokens": target_model.get('max_tokens', 1000),
             "top_p": target_model.get('top_p', 0.9),
+            "top_k": target_model.get('top_k'),
+            "min_p": target_model.get('min_p'),
+            "presence_penalty": target_model.get('presence_penalty'),
+            "repeat_penalty": target_model.get('repeat_penalty'),
             "auto_unload": service.get('auto_unload', True) if service.get('type') == 'ollama' else None,
             "providers": {}
         }

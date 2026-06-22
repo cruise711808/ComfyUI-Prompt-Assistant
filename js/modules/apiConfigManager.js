@@ -1509,6 +1509,8 @@ class APIConfigManager {
                 // 为表单容器添加横向布局类
                 formContainer.classList.add('model-params-form');
 
+                // ===== 第一行：基础参数（4个） =====
+
                 // 温度 (Temperature)
                 const tempInput = createInputGroup('温度 (Temperature)', '0.0 - 2.0', 'number');
                 tempInput.input.min = '0';
@@ -1516,7 +1518,7 @@ class APIConfigManager {
                 tempInput.input.step = '0.1';
                 tempInput.input.value = selectedModel.temperature ?? 0.7;
                 tempInput.input.dataset.fieldName = 'temperature';
-                tempInput.group.style.width = '135px';
+                tempInput.group.style.width = '170px';
                 formContainer.appendChild(tempInput.group);
 
                 // 核采样 (Top-P)
@@ -1526,8 +1528,19 @@ class APIConfigManager {
                 topPInput.input.step = '0.1';
                 topPInput.input.value = selectedModel.top_p ?? 0.9;
                 topPInput.input.dataset.fieldName = 'top_p';
-                topPInput.group.style.width = '135px';
+                topPInput.group.style.width = '170px';
                 formContainer.appendChild(topPInput.group);
+
+                // Top-K (前采样)
+                const topKInput = createInputGroup('前采样 (Top-K)', '', 'number');
+                topKInput.input.min = '0';
+                topKInput.input.max = '200';
+                topKInput.input.step = '1';
+                topKInput.input.value = selectedModel.top_k ?? '';
+                topKInput.input.placeholder = '自动';
+                topKInput.input.dataset.fieldName = 'top_k';
+                topKInput.group.style.width = '170px';
+                formContainer.appendChild(topKInput.group);
 
                 // 最大Token数
                 const maxTokensInput = createInputGroup('最大Token数', '1 - 8192', 'number');
@@ -1536,8 +1549,43 @@ class APIConfigManager {
                 maxTokensInput.input.step = '1';
                 maxTokensInput.input.value = selectedModel.max_tokens ?? 4096;
                 maxTokensInput.input.dataset.fieldName = 'max_tokens';
-                maxTokensInput.group.style.width = '135px';
+                maxTokensInput.group.style.width = '170px';
                 formContainer.appendChild(maxTokensInput.group);
+
+                // ===== 第二行：特性高级参数（3个） =====
+
+                // 最小概率 (Min-P)
+                const minPInput = createInputGroup('最小概率 (Min-P)', '', 'number');
+                minPInput.input.min = '0';
+                minPInput.input.max = '1';
+                minPInput.input.step = '0.05';
+                minPInput.input.value = selectedModel.min_p ?? '';
+                minPInput.input.placeholder = '自动';
+                minPInput.input.dataset.fieldName = 'min_p';
+                minPInput.group.style.width = '170px';
+                formContainer.appendChild(minPInput.group);
+
+                // 存在惩罚 (Presence Penalty)
+                const presenceInput = createInputGroup('存在惩罚\n(Presence Penalty)', '', 'number');
+                presenceInput.input.min = '-2';
+                presenceInput.input.max = '2';
+                presenceInput.input.step = '0.1';
+                presenceInput.input.value = selectedModel.presence_penalty ?? '';
+                presenceInput.input.placeholder = '自动';
+                presenceInput.input.dataset.fieldName = 'presence_penalty';
+                presenceInput.group.style.width = '170px';
+                formContainer.appendChild(presenceInput.group);
+
+                // 重复惩罚 (Repeat Penalty)
+                const repeatInput = createInputGroup('重复惩罚\n(Repeat Penalty)', '', 'number');
+                repeatInput.input.min = '0';
+                repeatInput.input.max = '2';
+                repeatInput.input.step = '0.1';
+                repeatInput.input.value = selectedModel.repeat_penalty ?? '';
+                repeatInput.input.placeholder = '自动';
+                repeatInput.input.dataset.fieldName = 'repeat_penalty';
+                repeatInput.group.style.width = '170px';
+                formContainer.appendChild(repeatInput.group);
             },
             onConfirm: async (formContainer) => {
                 try {
@@ -1577,17 +1625,36 @@ class APIConfigManager {
                         throw new Error('最大Token数无效');
                     }
 
+                    // 高级参数：留空 = null = 不维护，API 调用时不传递
+                    const topKVal = formContainer.querySelector('[data-field-name="top_k"]').value;
+                    const minPVal = formContainer.querySelector('[data-field-name="min_p"]').value;
+                    const presenceVal = formContainer.querySelector('[data-field-name="presence_penalty"]').value;
+                    const repeatVal = formContainer.querySelector('[data-field-name="repeat_penalty"]').value;
+
+                    const top_k = topKVal === '' ? null : parseFloat(topKVal);
+                    const min_p = minPVal === '' ? null : parseFloat(minPVal);
+                    const presence_penalty = presenceVal === '' ? null : parseFloat(presenceVal);
+                    const repeat_penalty = repeatVal === '' ? null : parseFloat(repeatVal);
+
                     // 使用self代替this来调用方法
                     await self._updateModelParams(service.id, modelType, modelName, {
                         temperature,
                         top_p,
-                        max_tokens
+                        max_tokens,
+                        top_k,
+                        min_p,
+                        presence_penalty,
+                        repeat_penalty,
                     });
 
                     // 更新本地数据
                     selectedModel.temperature = temperature;
                     selectedModel.top_p = top_p;
                     selectedModel.max_tokens = max_tokens;
+                    selectedModel.top_k = top_k;
+                    selectedModel.min_p = min_p;
+                    selectedModel.presence_penalty = presence_penalty;
+                    selectedModel.repeat_penalty = repeat_penalty;
 
                     app.extensionManager.toast.add({
                         severity: "success",
