@@ -7,82 +7,30 @@
     },
     "model_services": [
         {
-            "id": "zhipu",
+            "id": "openrouter",
             "type": "openai_compatible",
-            "name": "智谱",
-            "description": "免费GLM系列模型",
-            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+            "name": "OpenRouter",
+            "description": "多模型聚合平台",
+            "base_url": "https://openrouter.ai/api/v1",
             "api_key": "",
             "disable_thinking": true,
             "enable_advanced_params": true,
             "filter_thinking_output": true,
-            "llm_models": [
-                {
-                    "name": "glm-4-flash-250414",
-                    "display_name": "",
-                    "is_default": true,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                },
-                {
-                    "name": "glm-4.5-flash",
-                    "display_name": "",
-                    "is_default": false,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                }
-            ],
-            "vlm_models": [
-                {
-                    "name": "glm-4.6V-Flash",
-                    "display_name": "",
-                    "is_default": true,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                },
-                {
-                    "name": "glm-4v-flash",
-                    "display_name": "",
-                    "is_default": false,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                }
-            ]
+            "llm_models": [],
+            "vlm_models": []
         },
         {
-            "id": "xFlow",
+            "id": "xai",
             "type": "openai_compatible",
-            "name": "xFlow-API聚合",
-            "description": "免魔法Gemini、Grok、chatGPT...",
-            "base_url": "https://api.xflow.cc/v1",
+            "name": "xAI",
+            "description": "Grok系列模型",
+            "base_url": "https://api.x.ai/v1",
             "api_key": "",
             "disable_thinking": true,
             "enable_advanced_params": true,
             "filter_thinking_output": true,
-            "llm_models": [
-                {
-                    "name": "gemini-3-flash-preview-nothinking",
-                    "display_name": "",
-                    "is_default": true,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                }
-            ],
-            "vlm_models": [
-                {
-                    "name": "grok-4-1-fast-non-reasoning",
-                    "display_name": "",
-                    "is_default": true,
-                    "temperature": 0.7,
-                    "max_tokens": 4096,
-                    "top_p": 0.9
-                }
-            ]
+            "llm_models": [],
+            "vlm_models": []
         },
         {
             "id": "ollama",
@@ -97,16 +45,30 @@
             "filter_thinking_output": true,
             "llm_models": [],
             "vlm_models": []
+        },
+        {
+            "id": "service_355",
+            "type": "openai_compatible",
+            "name": "llama.cpp",
+            "description": "本地模型服务",
+            "base_url": "http://127.0.0.1:8080/v1",
+            "api_key": "",
+            "auto_unload": false,
+            "disable_thinking": false,
+            "enable_advanced_params": false,
+            "filter_thinking_output": false,
+            "llm_models": [],
+            "vlm_models": []
         }
     ],
     "current_services": {
         "llm": {
-            "service": "zhipu",
-            "model": "glm-4.5-flash"
+            "service": "ollama",
+            "model": ""
         },
         "vlm": {
-            "service": "zhipu",
-            "model": "glm-4v-flash"
+            "service": "ollama",
+            "model": ""
         },
         "translate": {
             "service": "baidu",

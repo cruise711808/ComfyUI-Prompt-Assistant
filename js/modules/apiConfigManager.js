@@ -24,7 +24,10 @@ import { tUI } from "../utils/uiI18n.js";
 
 class APIConfigManager {
     // 预置服务商ID列表（不可编辑/删除）
-    static PRESET_SERVICE_IDS = ['zhipu', 'xFlow', 'ollama'];
+    static PRESET_SERVICE_IDS = ['openrouter', 'xai', 'ollama', 'service_355'];
+
+    // 预置服务商中锁定 Base URL 不可修改的（ollama/service_355 可改地址）
+    static LOCKED_BASE_URL_IDS = ['openrouter', 'xai'];
 
     constructor() {
         // 服务商数据
@@ -1016,8 +1019,8 @@ class APIConfigManager {
         // 基本信息
         const baseUrlInput = createInputGroup('Base URL', 'https://api.example.com/v1');
         baseUrlInput.input.value = service.base_url || '';
-        // 智谱和 xflow 服务的 Base URL 禁用修改
-        if (service.id === 'zhipu' || service.id === 'xFlow') {
+        // 预置服务商中固定地址的 Base URL 禁用修改
+        if (APIConfigManager.LOCKED_BASE_URL_IDS.includes(service.id)) {
             baseUrlInput.input.disabled = true;
             baseUrlInput.input.title = tUI('该预置服务商的 Base URL 不可修改');
             baseUrlInput.input.classList.add('pa-input-disabled');
