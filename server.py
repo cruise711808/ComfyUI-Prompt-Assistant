@@ -647,7 +647,7 @@ async def update_model_parameter_api(request):
         parameter_name = data.get('parameter_name')
         parameter_value = data.get('parameter_value')
         
-        if not all([model_type, model_name, parameter_name, parameter_value is not None]):
+        if not model_type or not model_name or not parameter_name or 'parameter_value' not in data:
             return web.json_response({
                 "success": False,
                 "error": "缺少必需参数"
