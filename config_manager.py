@@ -1777,24 +1777,16 @@ class ConfigManager:
                     if model_list_key not in service:
                         return False
                     
-                    # 查找模型并更新参数（同时同步到另一个model_type列表中的同名模型）
-                    other_key = 'vlm_models' if model_list_key == 'llm_models' else 'llm_models'
-                    updated = False
+                    # 查找模型并更新参数
                     for model in service[model_list_key]:
                         if model.get('name') == model_name:
                             model[parameter_name] = parameter_value
-                            updated = True
-                    # 同步到另一个列表中的同名模型
-                    if other_key in service:
-                        for model in service[other_key]:
-                            if model.get('name') == model_name:
-                                model[parameter_name] = parameter_value
-                    if updated:
-                        config['model_services'][i] = service
-                        if self.save_config(config):
-                            self._log(f"成功更新模型参数: {model_name}.{parameter_name} = {parameter_value}")
-                            return True
-                        return False
+                            config['model_services'][i] = service
+                            
+                            if self.save_config(config):
+                                self._log(f"成功更新模型参数: {model_name}.{parameter_name} = {parameter_value}")
+                                return True
+                            return False
                     
                     self._log(f"模型不存在: {model_name}")
                     return False
